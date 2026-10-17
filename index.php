@@ -14,16 +14,25 @@ $voteStore = new Store('votes', $databaseDir, [
     'auto_cache' => false
 ]);
 
-// Cari file audio confetti secara dinamis
-$audioFile = null;
+// Cari file audio confetti, drum roll, dan fanfare secara dinamis
+$confettiAudioFile = null;
+$drumRollAudioFile = null;
+$fanfareAudioFile = null;
 $files = scandir(__DIR__);
 foreach ($files as $f) {
-    if (str_ends_with($f, '.mp3') && str_contains($f, 'Confetti')) {
-        $audioFile = $f;
-        break;
+    if (str_ends_with($f, '.mp3')) {
+        if (str_contains($f, 'Confetti')) {
+            $confettiAudioFile = $f;
+        } elseif (str_contains($f, 'Drum Roll')) {
+            $drumRollAudioFile = $f;
+        } elseif (str_contains($f, 'Fanfare')) {
+            $fanfareAudioFile = $f;
+        }
     }
 }
-$audioUrl = $audioFile ? ('/' . rawurlencode($audioFile)) : '';
+$confettiAudioUrl = $confettiAudioFile ? ('/' . rawurlencode($confettiAudioFile)) : '';
+$drumRollAudioUrl = $drumRollAudioFile ? ('/' . rawurlencode($drumRollAudioFile)) : '';
+$fanfareAudioUrl = $fanfareAudioFile ? ('/' . rawurlencode($fanfareAudioFile)) : '';
 
 // Daftar Calon Musyrif
 $musyrifList = [
@@ -108,44 +117,18 @@ foreach ($musyrifahList as $mf) {
 
 $totalVotes = count($allVotes);
 
-// Kumpulkan catatan/alasan dari santri untuk Musyrif & Musyrifah terpilih
-$rawSantriQuotes = [];
+// Kumpulkan catatan/alasan dari santri HANYA untuk Musyrif & Musyrifah terpilih dari database
+$allSantriQuotes = [];
 foreach ($allVotes as $v) {
     $kandidat = $v['kandidat'] ?? '';
     $alasan = trim($v['alasan'] ?? '');
     if (!empty($alasan)) {
         if ($kandidat === $winnerMusyrif['nama'] || $kandidat === $winnerMusyrifah['nama']) {
-            $rawSantriQuotes[] = mb_strtoupper($alasan, 'UTF-8');
+            $allSantriQuotes[] = mb_strtoupper($alasan, 'UTF-8');
         }
     }
 }
-
-// Kata-kata inspiratif & catatan santri sesuai contoh latar dan budaya santri
-$defaultQuotes = [
-    'KEREN...',
-    'AKU SELALU SENANG KALAU BELAJAR SAMA USTADZAH...',
-    'AKU SELALU SENANG KALAU BELAJAR SAMA USTADZ...',
-    'DIA SELALU BAIK HATI',
-    'KANGEN DAURAH INI LAGI... KIRA-KIRA KAPAN LAGI YA BAKALAN ADA',
-    'ORANGNYA SABAR DAN TELATEN BANGET',
-    'SELALU MEMBIMBING DENGAN LEMBUT',
-    'KEREN BANGET CARA MENGAJARNYA!',
-    'PEMBIMBING TAHFIDZ TERBAIK KAMI',
-    'SANGAT DISIPLIN TAPI PENYAYANG',
-    'SELALU MENDENGARKAN KELUH KESAH SANTRI',
-    'TELADAN DAN PANUTAN TERBAIK KAMI',
-    'RAMAH DAN SELALU TERSENYUM',
-    'PENGAJARANNYA SANGAT MUDAH DIPAHAMI',
-    'ALHAMDULILLAH DAPAT PEMBIMBING TERBAIK',
-    'SEMOGA ALLAH SELALU MEMBERKAHI BELIAU',
-    'SUARANYA SANGAT MERDU SAAT MEMIMPIN SHALAT',
-    'SANGAT PERHATIAN DENGAN HAFALAN KAMI',
-    'USTADZ TERFAVORIT SEPANJANG MASA!',
-    'USTADZAH PALING SABAR DAN TELATEN!'
-];
-
-// Gabungkan catatan asli santri dengan daftar variasi
-$allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defaultQuotes)));
+$allSantriQuotes = array_values(array_unique($allSantriQuotes));
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -217,31 +200,26 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
 </head>
 <body id="pageBody" class="bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-emerald-500 selection:text-white relative">
 
+  <!-- Audio Element untuk Drum Roll saat Hitung Mundur 10 s.d. 1 -->
+  <audio id="drumRollAudio" preload="auto">
+    <source src="<?= $drumRollAudioUrl ?>" type="audio/mpeg">
+  </audio>
+
   <!-- Audio Element untuk Confetti -->
   <audio id="confettiAudio" preload="auto">
-    <source src="<?= $audioUrl ?>" type="audio/mpeg">
+    <source src="<?= $confettiAudioUrl ?>" type="audio/mpeg">
+  </audio>
+
+  <!-- Audio Element untuk Fanfare saat Teks Catatan Muncul (Looping) -->
+  <audio id="fanfareAudio" preload="auto" loop>
+    <source src="<?= $fanfareAudioUrl ?>" type="audio/mpeg">
   </audio>
 
   <!-- LAYER LATAR BELAKANG: CATATAN SANTRI (FADE IN / FADE OUT) -->
   <div id="backgroundQuotesLayer" class="fixed inset-0 z-0 pointer-events-none overflow-hidden hidden"></div>
 
   <!-- Navbar / Header Atas -->
-  <header class="w-full max-w-7xl mx-auto px-6 py-4 flex items-center justify-between z-20 relative">
-    <div class="flex items-center gap-2">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-black text-slate-950 shadow-lg shadow-emerald-500/20">
-        V
-      </div>
-      <span class="font-bold text-sm sm:text-base tracking-wide text-emerald-400">Voting Musyrif & Musyrifah</span>
-    </div>
-    <div class="flex items-center gap-3">
-      <a href="/voting/" class="text-xs sm:text-sm font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-xl border border-slate-700 transition flex items-center gap-1.5 shadow-sm">
-        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
-        </svg>
-        <span>Ke Halaman Voting</span>
-      </a>
-    </div>
-  </header>
+ 
 
   <!-- Konten Utama -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col items-center justify-center relative z-10">
@@ -258,7 +236,7 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
       </h1>
 
       <p class="text-slate-300 text-base sm:text-lg mb-8 leading-relaxed max-w-lg">
-        Total <strong class="text-emerald-400"><?= $totalVotes ?> suara</strong> telah tercatat di sistem. Siapakah Musyrif & Musyrifah yang mendapatkan amanah terbanyak?
+        Total <strong class="text-emerald-400"><?= $totalVotes ?> suara</strong> telah tercatat di sistem. Siapakah Musyrif & Musyrifah terbaik versi santri?
       </p>
 
       <button
@@ -284,7 +262,7 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
 
             <!-- Badge Kategori -->
             <div id="badgeMusyrif" class="px-4 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-4 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-              Calon Musyrif
+              Musyrif Terbaik
             </div>
 
             <!-- Frame Foto -->
@@ -316,7 +294,7 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
             <h2 class="text-3xl sm:text-5xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-100 tracking-tight leading-snug drop-shadow-lg font-poster">
               Hitung bersama-sama ya....
             </h2>
-            <p class="text-slate-400 text-sm mt-3 font-medium">Bersiap dalam hitungan mundur!</p>
+
           </div>
 
           <!-- Wadah Angka Hitung Mundur (10 sampai 1) -->
@@ -341,17 +319,6 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
               </span><br>
               TERPILIH!
             </h2>
-            <div class="flex items-center gap-3 mt-6">
-              <button
-                id="btnReplay"
-                type="button"
-                class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl border border-slate-600 transition flex items-center gap-2 cursor-pointer shadow">
-                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                <span>Ulangi Hitung Mundur</span>
-              </button>
-            </div>
           </div>
 
         </div>
@@ -362,7 +329,7 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
 
             <!-- Badge Kategori -->
             <div id="badgeMusyrifah" class="px-4 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-4 bg-teal-500/20 text-teal-300 border border-teal-500/40">
-              Calon Musyrifah
+              Musyrifah Terbaik
             </div>
 
             <!-- Frame Foto -->
@@ -393,9 +360,6 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
   </main>
 
   <!-- Footer Bawah -->
-  <footer class="w-full max-w-7xl mx-auto px-6 py-4 text-center text-xs text-slate-500 z-20 relative">
-    &copy; 2026 E-Voting Santri &bull; Pemilihan Musyrif & Musyrifah
-  </footer>
 
   <!-- Script Presentasi, Confetti & Animasi Catatan Santri di Latar Belakang -->
   <script>
@@ -434,6 +398,8 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
     const countdownNumber = document.getElementById('countdownNumber');
     const winnerBanner = document.getElementById('winnerBanner');
     const confettiAudio = document.getElementById('confettiAudio');
+    const drumRollAudio = document.getElementById('drumRollAudio');
+    const fanfareAudio = document.getElementById('fanfareAudio');
 
     const backgroundQuotesLayer = document.getElementById('backgroundQuotesLayer');
 
@@ -520,12 +486,19 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
 
     // Jalankan Animasi Fade-In / Fade-Out Catatan Santri Satu Per Satu
     function startBackgroundQuotesAnimation() {
+      // Mainkan backsound The Fanfare secara looping terus-menerus
+      if (fanfareAudio) {
+        fanfareAudio.currentTime = 0;
+        fanfareAudio.loop = true;
+        fanfareAudio.play().catch(e => console.log('Fanfare audio play error:', e));
+      }
+
+      if (!santriQuotesPool || santriQuotesPool.length === 0) {
+        return;
+      }
+
       // Tampilkan layer latar belakang
       backgroundQuotesLayer.classList.remove('hidden');
-
-      // Gelapkan latar belakang halaman menjadi hitam pekat murni seperti Contoh Latar.jpg
-      pageBody.classList.remove('bg-gradient-to-br', 'from-slate-950', 'via-slate-900', 'to-emerald-950');
-      pageBody.style.backgroundColor = '#000000';
 
       const slots = backgroundQuotesLayer.querySelectorAll('.bg-quote-slot');
       let quotePoolIndex = 0;
@@ -588,9 +561,10 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
       });
       backgroundQuotesLayer.classList.add('hidden');
 
-      // Kembalikan background semula
-      pageBody.style.backgroundColor = '';
-      pageBody.classList.add('bg-gradient-to-br', 'from-slate-950', 'via-slate-900', 'to-emerald-950');
+      if (fanfareAudio) {
+        fanfareAudio.pause();
+        fanfareAudio.currentTime = 0;
+      }
     }
 
     // Fungsi Mulai Mengacak Foto
@@ -732,6 +706,20 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
 
     // Fungsi Utama Alur Presentasi
     function startPresentation() {
+      // Hentikan audio sebelumnya jika ada
+      if (drumRollAudio) {
+        drumRollAudio.pause();
+        drumRollAudio.currentTime = 0;
+      }
+      if (confettiAudio) {
+        confettiAudio.pause();
+        confettiAudio.currentTime = 0;
+      }
+      if (fanfareAudio) {
+        fanfareAudio.pause();
+        fanfareAudio.currentTime = 0;
+      }
+
       // Hentikan animasi catatan latar jika sebelumnya sedang berjalan
       stopBackgroundQuotesAnimation();
       createBackgroundSlots();
@@ -742,13 +730,13 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
       presentationStage.classList.add('flex');
 
       // Reset state kartu jika diulang
-      badgeMusyrif.innerHTML = 'Calon Musyrif';
+      badgeMusyrif.innerHTML = 'Musyrif Terbaik';
       badgeMusyrif.className = 'px-4 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-4 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
       photoFrameMusyrif.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-slate-700 bg-slate-900 shadow-xl mb-4 relative';
       cardMusyrif.className = 'w-full max-w-sm bg-slate-900/85 backdrop-blur-md border-2 border-emerald-500/30 rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl relative transition duration-300 z-10';
       votesMusyrif.classList.add('hidden');
 
-      badgeMusyrifah.innerHTML = 'Calon Musyrifah';
+      badgeMusyrifah.innerHTML = 'Musyrifah Terbaik';
       badgeMusyrifah.className = 'px-4 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-4 bg-teal-500/20 text-teal-300 border border-teal-500/40';
       photoFrameMusyrifah.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-slate-700 bg-slate-900 shadow-xl mb-4 relative';
       cardMusyrifah.className = 'w-full max-w-sm bg-slate-900/85 backdrop-blur-md border-2 border-teal-500/30 rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl relative transition duration-300 z-10';
@@ -771,6 +759,12 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
         countdownBox.classList.remove('hidden');
         countdownBox.classList.add('flex');
 
+        // Mainkan efek suara Drum Roll selama hitung mundur 10 sampai 1
+        if (drumRollAudio) {
+          drumRollAudio.currentTime = 0;
+          drumRollAudio.play().catch(e => console.log('Drum roll audio play error:', e));
+        }
+
         let currentCount = 10;
         countdownNumber.textContent = currentCount;
         triggerCountAnimation();
@@ -782,6 +776,11 @@ $allSantriQuotes = array_values(array_unique(array_merge($rawSantriQuotes, $defa
             triggerCountAnimation();
           } else {
             clearInterval(countInterval);
+            // Hentikan suara Drum Roll tepat saat hitungan selesai
+            if (drumRollAudio) {
+              drumRollAudio.pause();
+              drumRollAudio.currentTime = 0;
+            }
             // 5. Hitungan selesai: berhenti mengacak dan umumkan pemenang bersama confetti & audio
             stopShufflingAndShowWinners();
           }
