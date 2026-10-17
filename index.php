@@ -78,6 +78,33 @@ $musyrifahList = [
     ],
 ];
 
+// Ambil semua file gambar di folder Foto Musyrif untuk prefetch / preload
+$fotoMusyrifDir = __DIR__ . '/Foto Musyrif';
+$prefetchImages = [];
+if (is_dir($fotoMusyrifDir)) {
+    $dirFiles = scandir($fotoMusyrifDir);
+    foreach ($dirFiles as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'])) {
+            $prefetchImages[] = '/Foto%20Musyrif/' . rawurlencode($file);
+        }
+    }
+}
+// Pastikan semua foto kandidat musyrif & musyrifah juga masuk
+foreach ($musyrifList as $m) {
+    if (!empty($m['foto']) && !in_array($m['foto'], $prefetchImages, true)) {
+        $prefetchImages[] = $m['foto'];
+    }
+}
+foreach ($musyrifahList as $mf) {
+    if (!empty($mf['foto']) && !in_array($mf['foto'], $prefetchImages, true)) {
+        $prefetchImages[] = $mf['foto'];
+    }
+}
+
 // Ambil hasil voting dari SleekDB
 $allVotes = $voteStore->findAll();
 
@@ -153,6 +180,12 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pengumuman Hasil Voting Musyrif & Musyrifah</title>
+
+  <!-- Preload Gambar di Foto Musyrif agar tersimpan di cache browser sejak awal muat -->
+  <?php foreach ($prefetchImages as $imgUrl): ?>
+  <link rel="preload" as="image" href="<?= htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8') ?>">
+  <?php endforeach; ?>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -386,6 +419,21 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
     const winnerMusyrif = <?= json_encode($winnerMusyrif, JSON_UNESCAPED_SLASHES) ?>;
     const winnerMusyrifah = <?= json_encode($winnerMusyrifah, JSON_UNESCAPED_SLASHES) ?>;
     const santriQuotesPool = <?= json_encode($allSantriQuotes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const prefetchImagesList = <?= json_encode($prefetchImages, JSON_UNESCAPED_SLASHES) ?>;
+
+    // Prefetch & Cache Gambar di Browser agar saat pengacakan foto tidak berkedip / lag
+    const cachedImages = [];
+    function prefetchCandidateImages() {
+      prefetchImagesList.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        if (img.decode) {
+          img.decode().catch(() => {});
+        }
+        cachedImages.push(img);
+      });
+    }
+    prefetchCandidateImages();
 
     // DOM Elements
     const pageBody = document.getElementById('pageBody');
