@@ -125,8 +125,8 @@ foreach ($allVotes as $v) {
     $alasan = trim($v['alasan'] ?? '');
     if (!empty($alasan)) {
         $words = preg_split('/\s+/', $alasan, -1, PREG_SPLIT_NO_EMPTY);
-        if (count($words) > 30) {
-            $alasan = rtrim(implode(' ', array_slice($words, 0, 30)), ' .,;:!?') . '...';
+        if (count($words) > 10) {
+            $alasan = rtrim(implode(' ', array_slice($words, 0, 10)), ' .,;:!?') . '...';
         }
         $upperAlasan = mb_strtoupper($alasan, 'UTF-8');
         if ($kandidat === $winnerMusyrif['nama'] || $kandidat === $winnerMusyrifah['nama']) {
@@ -187,211 +187,31 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
       box-shadow: 0 0 50px rgba(16, 185, 129, 0.5), 0 0 25px rgba(251, 191, 36, 0.5);
     }
 
-    /* Style untuk Slot Catatan Latar Belakang ala Poster Contoh Latar.jpg (Bebas Tabrakan / Tanpa Menumpuk) */
+    /* Style untuk Slot Catatan Latar Belakang (Contoh Latar.jpg) */
     .bg-quote-slot {
       position: absolute;
-      overflow: hidden;
-      box-sizing: border-box;
       pointer-events: none;
       user-select: none;
       opacity: 0;
       color: #ffffff;
       font-family: 'Oswald', 'Barlow Condensed', 'Impact', sans-serif;
       text-transform: uppercase;
-      transition: opacity 0.8s ease-in-out;
-      will-change: opacity;
-      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.9);
-      display: flex;
-    }
-
-    /* === SISI KIRI (Left Half) === */
-    /* Slot L1: Lajur vertikal di tepi kiri luar */
-    .bg-quote-slot.slot-l1 {
-      left: 1.5vw;
-      top: 19vh;
-      width: 4.8vw;
-      height: 64vh;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      align-items: center;
-      justify-content: center;
-      font-size: clamp(1rem, 1.8vw, 1.6rem);
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      line-height: 1.1;
-    }
-    .bg-quote-slot.slot-l1.active {
-      opacity: 0.85;
-    }
-
-    /* Slot L2: Blok horizontal 2 baris di kiri atas */
-    .bg-quote-slot.slot-l2 {
-      left: 1.5vw;
-      top: 2.5vh;
-      width: 45.5vw;
-      height: 14.5vh;
-      flex-direction: column;
-      justify-content: center;
-      font-size: clamp(1.4rem, 2.7vw, 2.4rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.01em;
-    }
-    .bg-quote-slot.slot-l2.active {
-      opacity: 0.95;
-    }
-
-    /* Slot L3: Kata Raksasa Headline Tengah Kiri (ala "KEREN...") */
-    .bg-quote-slot.slot-l3 {
-      left: 7.2vw;
-      top: 19vh;
-      width: 39.8vw;
-      height: 28vh;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(3rem, 6.5vw, 6.2rem);
-      font-weight: 900;
-      line-height: 0.88;
-      letter-spacing: -0.03em;
-    }
-    .bg-quote-slot.slot-l3.active {
-      opacity: 0.95;
-    }
-
-    /* Slot L4: Garis pembatas horizontal tengah kiri */
-    .bg-quote-slot.slot-l4 {
-      left: 7.2vw;
-      top: 48.5vh;
-      width: 39.8vw;
-      height: 6vh;
-      align-items: center;
-      font-size: clamp(0.9rem, 1.35vw, 1.3rem);
-      font-weight: 700;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .bg-quote-slot.slot-l4.active {
-      opacity: 0.85;
-    }
-
-    /* Slot L5: Kata Raksasa Headline Bawah Kiri (ala "KEREN...") */
-    .bg-quote-slot.slot-l5 {
-      left: 7.2vw;
-      top: 55.5vh;
-      width: 39.8vw;
-      height: 27.5vh;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(3rem, 6.5vw, 6.2rem);
-      font-weight: 900;
-      line-height: 0.88;
-      letter-spacing: -0.03em;
-    }
-    .bg-quote-slot.slot-l5.active {
-      opacity: 0.95;
-    }
-
-    /* Slot L6: Garis horizontal bawah kiri */
-    .bg-quote-slot.slot-l6 {
-      left: 1.5vw;
-      top: 85vh;
-      width: 45.5vw;
-      height: 12vh;
-      align-items: center;
-      font-size: clamp(1rem, 1.6vw, 1.4rem);
-      font-weight: 700;
-      line-height: 1.15;
-    }
-    .bg-quote-slot.slot-l6.active {
-      opacity: 0.88;
-    }
-
-    /* === SISI KANAN (Right Half) === */
-    /* Slot R1: Baris horizontal kanan atas */
-    .bg-quote-slot.slot-r1 {
-      left: 52vw;
-      top: 2.5vh;
-      width: 46.5vw;
-      height: 13.5vh;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(1.4rem, 2.5vw, 2.2rem);
-      font-weight: 800;
-      line-height: 1.1;
-    }
-    .bg-quote-slot.slot-r1.active {
-      opacity: 0.92;
-    }
-
-    /* Slot R2: Lajur vertikal 1 (dalam) di sisi kanan */
-    .bg-quote-slot.slot-r2 {
-      left: 52vw;
-      top: 17.5vh;
-      width: 9.5vw;
-      height: 79.5vh;
-      writing-mode: vertical-rl;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(1.15rem, 2vw, 1.9rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: 0.02em;
-    }
-    .bg-quote-slot.slot-r2.active {
-      opacity: 0.85;
-    }
-
-    /* Slot R3: Lajur vertikal 2 (tengah) di sisi kanan */
-    .bg-quote-slot.slot-r3 {
-      left: 63vw;
-      top: 17.5vh;
-      width: 10.5vw;
-      height: 79.5vh;
-      writing-mode: vertical-rl;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(1.15rem, 2vw, 1.9rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: 0.02em;
-    }
-    .bg-quote-slot.slot-r3.active {
-      opacity: 0.85;
-    }
-
-    /* Slot R4: Lajur vertikal RAKSASA di tepi kanan (ala R4 Contoh Latar.jpg) */
-    .bg-quote-slot.slot-r4 {
-      left: 75vw;
-      top: 17.5vh;
-      width: 23.5vw;
-      height: 79.5vh;
-      writing-mode: vertical-rl;
-      align-items: center;
-      justify-content: flex-start;
-      font-size: clamp(2.4rem, 5vw, 5rem);
-      font-weight: 900;
-      line-height: 0.88;
+      line-height: 0.92;
       letter-spacing: -0.02em;
+      transition: opacity 1.2s ease-in-out;
+      text-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+      will-change: opacity;
     }
-    .bg-quote-slot.slot-r4.active {
-      opacity: 0.95;
+    .bg-quote-slot.active {
+      opacity: 0.82;
     }
-
-    @media (max-width: 768px) {
-      .bg-quote-slot.slot-l1,
-      .bg-quote-slot.slot-r2,
-      .bg-quote-slot.slot-r3 {
-        display: none !important;
-      }
-      .bg-quote-slot.slot-l3,
-      .bg-quote-slot.slot-l5 {
-        font-size: clamp(1.8rem, 6vw, 3rem);
-        left: 2vw;
-        width: 47vw;
-      }
-      .bg-quote-slot.slot-r4 {
-        font-size: clamp(1.6rem, 5vw, 2.6rem);
-      }
+    .bg-quote-slot.rotate-90 {
+      transform: rotate(90deg);
+      transform-origin: center center;
+      white-space: nowrap;
+    }
+    .bg-quote-slot.rotate-0 {
+      transform: rotate(0deg);
     }
   </style>
 </head>
@@ -615,32 +435,71 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
       return copy;
     }
 
-    // Definisi 10 Slot Catatan Latar Belakang ala Poster Contoh Latar.jpg (Bebas Tabrakan & Non-Overlapping)
-    const backgroundSlotDefinitions = [
-      { id: 'bg-slot-l1', className: 'slot-l1', type: 'standard', baseDuration: 6200, delay: 0 },
-      { id: 'bg-slot-l2', className: 'slot-l2', type: 'standard', baseDuration: 6600, delay: 350 },
-      { id: 'bg-slot-l3', className: 'slot-l3', type: 'giant',    baseDuration: 5800, delay: 700 },
-      { id: 'bg-slot-l4', className: 'slot-l4', type: 'ribbon',   baseDuration: 6400, delay: 1050 },
-      { id: 'bg-slot-l5', className: 'slot-l5', type: 'giant',    baseDuration: 6000, delay: 1400 },
-      { id: 'bg-slot-l6', className: 'slot-l6', type: 'ribbon',   baseDuration: 6500, delay: 1750 },
-      { id: 'bg-slot-r1', className: 'slot-r1', type: 'standard', baseDuration: 6300, delay: 2100 },
-      { id: 'bg-slot-r2', className: 'slot-r2', type: 'standard', baseDuration: 6700, delay: 2450 },
-      { id: 'bg-slot-r3', className: 'slot-r3', type: 'standard', baseDuration: 6400, delay: 2800 },
-      { id: 'bg-slot-r4', className: 'slot-r4', type: 'giant-vertical', baseDuration: 6100, delay: 3150 }
+    // Definisi Slot Tata Letak Catatan Latar Belakang (Seperti Contoh Latar.jpg)
+    // Sejak awal sudah di-set rotasi 0 atau 90 derajat, bold atau tidak bold, uppercase semua
+    const backgroundSlotConfigs = [
+      // Kiri Atas (Horizontal besar, bold)
+      { id: 's1', top: '3%', left: '3%', fontSize: 'clamp(1.8rem, 3.2vw, 3.6rem)', bold: true, rotate: 0, maxWidth: '42%' },
+      // Kiri Tengah (Vertikal, bold)
+      { id: 's2', top: '38%', left: '-2%', fontSize: 'clamp(1.6rem, 2.6vw, 3rem)', bold: true, rotate: 90, width: '380px' },
+      // Kiri Tengah Raksasa (KEREN...)
+      { id: 's3', top: '22%', left: '16%', fontSize: 'clamp(3rem, 5.5vw, 6.5rem)', bold: true, rotate: 0, maxWidth: '28%' },
+      // Kiri Bawah Teks Horizontal Panjang (tidak bold)
+      { id: 's4', top: '50%', left: '6%', fontSize: 'clamp(1.2rem, 1.8vw, 1.9rem)', bold: false, rotate: 0, maxWidth: '42%' },
+      // Kiri Bawah Raksasa (KEREN...)
+      { id: 's5', top: '60%', left: '14%', fontSize: 'clamp(3.2rem, 6vw, 7rem)', bold: true, rotate: 0, maxWidth: '30%' },
+      // Kiri Dasar (Horizontal, bold)
+      { id: 's6', bottom: '3%', left: '3%', fontSize: 'clamp(1.2rem, 1.9vw, 2.2rem)', bold: true, rotate: 0, maxWidth: '46%' },
+
+      // Tengah Atas (Horizontal, tidak bold)
+      { id: 's7', top: '2%', left: '38%', fontSize: 'clamp(1.2rem, 2vw, 2.4rem)', bold: false, rotate: 0, maxWidth: '26%' },
+      // Tengah Bawah (Horizontal, bold)
+      { id: 's8', bottom: '2%', left: '36%', fontSize: 'clamp(1.3rem, 2.1vw, 2.3rem)', bold: true, rotate: 0, maxWidth: '28%' },
+
+      // Kanan Atas (Horizontal, tidak bold)
+      { id: 's9', top: '3%', right: '3%', fontSize: 'clamp(1.5rem, 2.6vw, 2.8rem)', bold: false, rotate: 0, maxWidth: '36%' },
+      // Kanan Kolom Vertikal 1 (Vertikal, bold)
+      { id: 's10', top: '26%', right: '32%', fontSize: 'clamp(1.4rem, 2.2vw, 2.5rem)', bold: true, rotate: 90, width: '420px' },
+      // Kanan Kolom Vertikal 2 (Vertikal, tidak bold)
+      { id: 's11', top: '32%', right: '22%', fontSize: 'clamp(1.5rem, 2.4vw, 2.6rem)', bold: false, rotate: 90, width: '380px' },
+      // Kanan Kolom Vertikal 3 (Vertikal, bold besar)
+      { id: 's12', top: '24%', right: '1%', fontSize: 'clamp(2rem, 3.8vw, 4.2rem)', bold: true, rotate: 90, width: '480px' },
+      // Kanan Tengah Raksasa (KEREN...)
+      { id: 's13', top: '48%', right: '18%', fontSize: 'clamp(2.4rem, 4.5vw, 5rem)', bold: true, rotate: 90, width: '360px' },
+      // Kanan Bawah (Horizontal, bold)
+      { id: 's14', bottom: '12%', right: '12%', fontSize: 'clamp(1.8rem, 3vw, 3.4rem)', bold: true, rotate: 0, maxWidth: '34%' },
     ];
 
-    // Inisialisasi 10 Elemen Slot Catatan Latar Belakang (Struktur Poster Contoh Latar.jpg)
+    // Inisialisasi Elemen Slot Catatan Latar Belakang
     function createBackgroundSlots() {
       backgroundQuotesLayer.innerHTML = '';
-      backgroundSlotDefinitions.forEach(slotDef => {
+      backgroundSlotConfigs.forEach((cfg, idx) => {
         const slotEl = document.createElement('div');
-        slotEl.id = slotDef.id;
-        slotEl.className = 'bg-quote-slot ' + slotDef.className;
+        slotEl.id = 'bg-slot-' + idx;
+
+        // Kelas dasar dan rotasi (rotasi sejak awal sudah 0 atau 90 derajat)
+        let cls = 'bg-quote-slot ' + (cfg.rotate === 90 ? 'rotate-90' : 'rotate-0');
+        if (cfg.bold) {
+          cls += ' font-black';
+        } else {
+          cls += ' font-normal';
+        }
+        slotEl.className = cls;
+
+        // Terapkan posisi dan style
+        if (cfg.top) slotEl.style.top = cfg.top;
+        if (cfg.bottom) slotEl.style.bottom = cfg.bottom;
+        if (cfg.left) slotEl.style.left = cfg.left;
+        if (cfg.right) slotEl.style.right = cfg.right;
+        if (cfg.maxWidth) slotEl.style.maxWidth = cfg.maxWidth;
+        if (cfg.width) slotEl.style.width = cfg.width;
+        if (cfg.fontSize) slotEl.style.fontSize = cfg.fontSize;
+
         backgroundQuotesLayer.appendChild(slotEl);
       });
     }
 
-    // Jalankan Animasi Fade-In / Fade-Out Catatan Santri (Tanpa Pernah Menumpuk)
+    // Jalankan Animasi Fade-In / Fade-Out Catatan Santri Satu Per Satu
     function startBackgroundQuotesAnimation() {
       // Mainkan backsound The Fanfare secara looping terus-menerus
       if (fanfareAudio) {
@@ -653,50 +512,24 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
         return;
       }
 
-      // Pastikan 10 slot sudah dibuat di DOM
+      // Pastikan slot sudah dibuat
       const existingSlots = backgroundQuotesLayer.querySelectorAll('.bg-quote-slot');
-      if (!existingSlots || existingSlots.length !== backgroundSlotDefinitions.length) {
+      if (!existingSlots || existingSlots.length !== backgroundSlotConfigs.length) {
         createBackgroundSlots();
       }
 
       // Tampilkan layer latar belakang
       backgroundQuotesLayer.classList.remove('hidden');
 
+      const slots = backgroundQuotesLayer.querySelectorAll('.bg-quote-slot');
       let quotePoolIndex = 0;
       const shuffledQuotes = shuffleArray(santriQuotesPool);
 
       function formatQuote(text) {
         if (!text) return '';
         const words = text.trim().split(/\s+/);
-        if (words.length > 30) {
-          return words.slice(0, 30).join(' ').replace(/[.,;:!?]+$/, '') + '...';
-        }
-        return text;
-      }
-
-      function getGiantHeadline(text) {
-        if (!text) return 'KEREN...';
-        const words = text.trim().split(/\s+/);
-        if (words.length <= 2) {
-          return text.replace(/[.,;:!?]+$/, '') + '...';
-        }
-        return words.slice(0, 2).join(' ').replace(/[.,;:!?]+$/, '') + '...';
-      }
-
-      function getGiantVertical(text) {
-        if (!text) return 'KEREN...';
-        const words = text.trim().split(/\s+/);
-        if (words.length <= 4) {
-          return text;
-        }
-        return words.slice(0, 4).join(' ').replace(/[.,;:!?]+$/, '') + '...';
-      }
-
-      function getRibbonText(text) {
-        if (!text) return '';
-        const words = text.trim().split(/\s+/);
-        if (words.length > 12) {
-          return words.slice(0, 12).join(' ').replace(/[.,;:!?]+$/, '') + '...';
+        if (words.length > 10) {
+          return words.slice(0, 10).join(' ').replace(/[.,;:!?]+$/, '') + '...';
         }
         return text;
       }
@@ -704,63 +537,44 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
       function getNextQuote() {
         const q = shuffledQuotes[quotePoolIndex % shuffledQuotes.length];
         quotePoolIndex++;
-        return q;
+        return formatQuote(q);
       }
 
-      // Animasi siklus untuk setiap slot individual (tanpa pernah menumpuk)
-      // Teks lama HARUS fade-out sampai tuntas (opacity: 0) sebelum teks baru dimasukkan!
-      function runSlotCycle(slotDef, delayBeforeStart = 0) {
-        const tStart = setTimeout(() => {
-          const slotEl = document.getElementById(slotDef.id);
-          if (!slotEl) return;
+      // Animasi siklus untuk setiap slot individual
+      function runSlotCycle(slotEl) {
+        // Ambil catatan berikutnya (maksimal 10 kata + ...)
+        const text = getNextQuote();
+        slotEl.textContent = text;
 
-          const rawQuote = getNextQuote();
-          let displayText = '';
+        // FADE IN
+        slotEl.classList.add('active');
 
-          if (slotDef.type === 'giant') {
-            displayText = getGiantHeadline(rawQuote);
-          } else if (slotDef.type === 'giant-vertical') {
-            displayText = getGiantVertical(rawQuote);
-          } else if (slotDef.type === 'ribbon') {
-            displayText = getRibbonText(rawQuote);
-          } else {
-            displayText = formatQuote(rawQuote);
-          }
+        // Durasi tampil di layar (antara 4.5 sampai 7 detik)
+        const visibleDuration = 4500 + Math.random() * 2500;
 
-          // Isi teks baru ke elemen saat opacity masih 0
-          slotEl.textContent = displayText;
+        const toOut = setTimeout(() => {
+          // FADE OUT
+          slotEl.classList.remove('active');
 
-          // Fade In
-          requestAnimationFrame(() => {
-            slotEl.classList.add('active');
-          });
+          // Jeda saat pudar sebelum teks baru fade-in (1.2 detik)
+          const toIn = setTimeout(() => {
+            slotEl.textContent = '';
+            runSlotCycle(slotEl);
+          }, 1200);
 
-          // Durasi tampil di layar (baseDuration + variasi acak agar rotasi organik & dinamis)
-          const visibleDuration = slotDef.baseDuration + (Math.random() * 1500);
+          backgroundSlotsTimeouts.push(toIn);
+        }, visibleDuration);
 
-          const toOut = setTimeout(() => {
-            // Fade Out (opacity -> 0)
-            slotEl.classList.remove('active');
-
-            // Jeda kosong saat teks benar-benar pudar (800ms) sebelum teks berikutnya dimasukkan
-            // Menjamin 100% tidak ada teks yang saling menumpuk secara visual!
-            const toIn = setTimeout(() => {
-              slotEl.textContent = '';
-              runSlotCycle(slotDef, 200);
-            }, 800);
-
-            backgroundSlotsTimeouts.push(toIn);
-          }, visibleDuration);
-
-          backgroundSlotsTimeouts.push(toOut);
-        }, delayBeforeStart);
-
-        backgroundSlotsTimeouts.push(tStart);
+        backgroundSlotsTimeouts.push(toOut);
       }
 
-      // Jalankan seluruh 10 slot dengan jeda awal bertahap (staggered)
-      backgroundSlotDefinitions.forEach(slotDef => {
-        runSlotCycle(slotDef, slotDef.delay);
+      // Mulai setiap slot dengan jeda berurutan (stagger) sehingga muncul SATU PER SATU
+      slots.forEach((slotEl, idx) => {
+        const staggerDelay = idx * 450; // Jeda 450ms per elemen
+        const t = setTimeout(() => {
+          runSlotCycle(slotEl);
+        }, staggerDelay);
+        backgroundSlotsTimeouts.push(t);
       });
     }
 
