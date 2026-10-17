@@ -1,0 +1,82 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "a0e5d9f90cb2665c9ccd7d5e7fce4460",
+    "packages": [
+        {
+            "name": "rakibtg/sleekdb",
+            "version": "2.50",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/SleekDB/SleekDB.git",
+                "reference": "b498a4e3b389adc060c99d4ac8e4d2b5c69fc0d2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/SleekDB/SleekDB/zipball/b498a4e3b389adc060c99d4ac8e4d2b5c69fc0d2",
+                "reference": "b498a4e3b389adc060c99d4ac8e4d2b5c69fc0d2",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": ">=8.4"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.0",
+                "spatie/phpunit-watcher": "^1.23"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SleekDB\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "rakibtg",
+                    "email": "rakibtg@gmail.com"
+                }
+            ],
+            "description": "SleekDB - A NoSQL Database made using PHP",
+            "keywords": [
+                "SleekDB",
+                "api",
+                "database",
+                "flatfile",
+                "framework",
+                "micro",
+                "nosql",
+                "php",
+                "rest"
+            ],
+            "support": {
+                "issues": "https://github.com/SleekDB/SleekDB/issues",
+                "source": "https://github.com/SleekDB/SleekDB/tree/2.50"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/sleekdb",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-11-16T17:43:54+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}
