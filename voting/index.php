@@ -105,6 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } else {
+        // Validasi batas maksimal 30 kata
+        $wordArray = preg_split('/\s+/', $alasan, -1, PREG_SPLIT_NO_EMPTY);
+        if (count($wordArray) > 30) {
+            $errorMessage = 'Alasan maksimal 30 kata. Saat ini terdapat ' . count($wordArray) . ' kata.';
+            if ($isJson) {
+                header('Content-Type: application/json');
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => $errorMessage]);
+                exit;
+            }
+        } else {
         // Cari data santri berdasarkan NIS
         $selectedSantri = null;
         foreach ($allSantri as $s) {
@@ -176,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
 }
 
 // Statistik Singkat
@@ -427,14 +439,19 @@ $successKandidat = $_GET['kandidat'] ?? '';
 
         <!-- LANGKAH 3: Alasan Memilih (Textarea) -->
         <div id="reasonSection" class="hidden">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">3</span>
-            <label for="alasanTextarea" class="text-lg font-bold text-slate-900">
-              Alasan Memilih
-            </label>
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">3</span>
+              <label for="alasanTextarea" class="text-lg font-bold text-slate-900">
+                Alasan Memilih
+              </label>
+            </div>
+            <div id="wordCountBadge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 transition">
+              <span id="wordCount">0</span> / 30 kata
+            </div>
           </div>
           <p class="text-slate-500 text-xs sm:text-sm mb-3">
-            Tuliskan alasan mengapa Anda memilih Ustadz / Ustadzah tersebut.
+            Tuliskan alasan mengapa Anda memilih Ustadz / Ustadzah tersebut (maksimal 30 kata).
           </p>
 
           <textarea
@@ -444,6 +461,12 @@ $successKandidat = $_GET['kandidat'] ?? '';
             required
             placeholder="Contoh: Beliau sangat telaten, ramah, dan membimbing hafalan Al-Qur'an dengan sabar..."
             class="w-full bg-slate-50 border-2 border-slate-200 text-slate-800 text-sm sm:text-base rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 block p-3.5 transition placeholder-slate-400"></textarea>
+          <div id="wordLimitWarning" class="hidden mt-2 text-xs text-rose-600 font-bold flex items-center gap-1.5">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <span>Alasan melebihi batas maksimal 30 kata! Mohon persingkat sebelum mengirim.</span>
+          </div>
         </div>
 
         <!-- Tombol Kirim -->
@@ -638,7 +661,44 @@ $successKandidat = $_GET['kandidat'] ?? '';
       const progressBar = document.getElementById('progressBar');
       const btnNextVoter = document.getElementById('btnNextVoter');
 
+      const alasanTextarea = document.getElementById('alasanTextarea');
+      const wordCount = document.getElementById('wordCount');
+      const wordCountBadge = document.getElementById('wordCountBadge');
+      const wordLimitWarning = document.getElementById('wordLimitWarning');
+
       let currentGender = '';
+
+      function countWords(str) {
+        if (!str) return 0;
+        const matches = str.trim().match(/\S+/g);
+        return matches ? matches.length : 0;
+      }
+
+      function updateWordCount() {
+        if (!alasanTextarea) return;
+        const count = countWords(alasanTextarea.value);
+        if (wordCount) wordCount.textContent = count;
+
+        if (count > 30) {
+          if (wordCountBadge) {
+            wordCountBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 border border-rose-300 transition';
+          }
+          if (wordLimitWarning) wordLimitWarning.classList.remove('hidden');
+          alasanTextarea.classList.add('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
+          alasanTextarea.classList.remove('border-slate-200', 'focus:border-emerald-500', 'focus:ring-emerald-500/20');
+        } else {
+          if (wordCountBadge) {
+            wordCountBadge.className = 'text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 transition';
+          }
+          if (wordLimitWarning) wordLimitWarning.classList.add('hidden');
+          alasanTextarea.classList.remove('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
+          alasanTextarea.classList.add('border-slate-200', 'focus:border-emerald-500', 'focus:ring-emerald-500/20');
+        }
+      }
+
+      if (alasanTextarea) {
+        alasanTextarea.addEventListener('input', updateWordCount);
+      }
 
       // Fungsi Redirect Countdown
       function startRedirectCountdown() {
@@ -778,7 +838,14 @@ $successKandidat = $_GET['kandidat'] ?? '';
 
         if (!alasan) {
           alert('Mohon isi alasan Anda memilih kandidat tersebut.');
-          document.getElementById('alasanTextarea').focus();
+          alasanTextarea.focus();
+          return;
+        }
+
+        const wordsNum = countWords(alasan);
+        if (wordsNum > 30) {
+          alert('Alasan maksimal 30 kata. Saat ini terdapat ' + wordsNum + ' kata. Mohon persingkat alasan Anda sebelum mengirim.');
+          alasanTextarea.focus();
           return;
         }
 
