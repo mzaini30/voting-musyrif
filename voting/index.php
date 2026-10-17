@@ -21,11 +21,21 @@ if (!is_array($allSantri)) {
     $allSantri = [];
 }
 
+// 1b. Ambil data asatidz & pembina dari Data Asatidz.json
+$asatidzJsonFile = __DIR__ . '/../Data Asatidz.json';
+$allAsatidz = file_exists($asatidzJsonFile) ? json_decode(file_get_contents($asatidzJsonFile), true) : [];
+if (!is_array($allAsatidz)) {
+    $allAsatidz = [];
+}
+
+// Gabungan semua data pemilih (Santri + Asatidz)
+$allVoters = array_merge($allSantri, $allAsatidz);
+
 // 2. Ambil data voting yang sudah tersimpan di SleekDB
 $allVotes = $voteStore->findAll();
-$votedNis = array_map(function($v) {
+$votedNis = array_values(array_unique(array_map(function($v) {
     return (string)$v['nis'];
-}, $allVotes);
+}, $allVotes)));
 
 // Handle Reset Voting (untuk testing jika diperlukan oleh admin)
 if (isset($_GET['action']) && $_GET['action'] === 'reset_votes') {
@@ -42,9 +52,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'reset_votes') {
 $availableSantri = array_filter($allSantri, function($santri) use ($votedNis) {
     return !in_array((string)$santri['NIS'], $votedNis);
 });
-
-// Urutkan nama santri sesuai alfabet
 usort($availableSantri, function($a, $b) {
+    return strcasecmp($a['Nama Sesuai KK'], $b['Nama Sesuai KK']);
+});
+
+// 3b. Filter asatidz yang belum memilih
+$availableAsatidz = array_filter($allAsatidz, function($asatidz) use ($votedNis) {
+    return !in_array((string)$asatidz['NIS'], $votedNis);
+});
+usort($availableAsatidz, function($a, $b) {
     return strcasecmp($a['Nama Sesuai KK'], $b['Nama Sesuai KK']);
 });
 
@@ -52,17 +68,17 @@ usort($availableSantri, function($a, $b) {
 $musyrifList = [
     [
         'nama' => 'Ustadz Hanif',
-        'foto' => '/Foto%20Musyrif/Ustadz%20Hanif.jpg',
+        'foto' => '/Foto%20Musyrif/Ustadz%20Hanif.png',
         'kategori' => 'Musyrif'
     ],
     [
         'nama' => 'Ustadz Nawwar',
-        'foto' => '/Foto%20Musyrif/Ustadz%20Nawwar.jpg',
+        'foto' => '/Foto%20Musyrif/Ustadz%20Nawwar.png',
         'kategori' => 'Musyrif'
     ],
     [
         'nama' => 'Ustadz Zakki',
-        'foto' => '/Foto%20Musyrif/Ustadz%20Zakki.jpg',
+        'foto' => '/Foto%20Musyrif/Ustadz%20Zakki.png',
         'kategori' => 'Musyrif'
     ],
 ];
@@ -93,107 +109,181 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = $isJson ? json_decode(file_get_contents('php://input'), true) : $_POST;
 
     $nis = trim($input['nis'] ?? '');
-    $kandidat = trim($input['kandidat'] ?? '');
-    $alasan = trim($input['alasan'] ?? '');
 
-    if (empty($nis) || empty($kandidat) || empty($alasan)) {
-        $errorMessage = 'Mohon lengkapi semua formulir: nama pemilih, kandidat yang dipilih, dan alasan.';
-        if ($isJson) {
-            header('Content-Type: application/json');
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => $errorMessage]);
-            exit;
-        }
-    } else {
-        // Validasi batas maksimal 30 kata
-        $wordArray = preg_split('/\s+/', $alasan, -1, PREG_SPLIT_NO_EMPTY);
-        if (count($wordArray) > 30) {
-            $errorMessage = 'Alasan maksimal 30 kata. Saat ini terdapat ' . count($wordArray) . ' kata.';
-            if ($isJson) {
-                header('Content-Type: application/json');
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => $errorMessage]);
-                exit;
-            }
+    // Ambil input kandidat & alasan
+    $kandidatMusyrif = trim($input['kandidat_musyrif'] ?? '');
+    $alasanMusyrif = trim($input['alasan_musyrif'] ?? '');
+    $kandidatMusyrifah = trim($input['kandidat_musyrifah'] ?? '');
+    $alasanMusyrifah = trim($input['alasan_musyrifah'] ?? '');
+
+    // Fallback jika input dikirim dengan name tunggal 'kandidat' dan 'alasan'
+    if (empty($kandidatMusyrif) && empty($kandidatMusyrifah) && !empty($input['kandidat'])) {
+        $singleKandidat = trim($input['kandidat'] ?? '');
+        $singleAlasan = trim($input['alasan'] ?? '');
+        if (in_array($singleKandidat, array_column($musyrifList, 'nama'))) {
+            $kandidatMusyrif = $singleKandidat;
+            $alasanMusyrif = $singleAlasan;
         } else {
-        // Cari data santri berdasarkan NIS
-        $selectedSantri = null;
+            $kandidatMusyrifah = $singleKandidat;
+            $alasanMusyrifah = $singleAlasan;
+        }
+    }
+
+    // Cari pemilih di $allVoters
+    $selectedVoter = null;
+    $isAsatidz = false;
+    foreach ($allAsatidz as $a) {
+        if ((string)$a['NIS'] === $nis) {
+            $selectedVoter = $a;
+            $isAsatidz = true;
+            break;
+        }
+    }
+    if (!$selectedVoter) {
         foreach ($allSantri as $s) {
             if ((string)$s['NIS'] === $nis) {
-                $selectedSantri = $s;
+                $selectedVoter = $s;
                 break;
             }
         }
+    }
 
-        if (!$selectedSantri) {
-            $errorMessage = 'Data santri tidak ditemukan.';
-            if ($isJson) {
-                header('Content-Type: application/json');
-                http_response_code(404);
-                echo json_encode(['success' => false, 'message' => $errorMessage]);
-                exit;
+    if (empty($nis)) {
+        $errorMessage = 'Mohon pilih nama pemilih terlebih dahulu.';
+    } elseif (!$selectedVoter) {
+        $errorMessage = 'Data pemilih tidak ditemukan.';
+    } elseif (in_array($nis, $votedNis)) {
+        $errorMessage = 'Pemilih ini sudah pernah memberikan suaranya.';
+    } else {
+        // Validasi berdasarkan tipe pemilih (Asatidz vs Santri)
+        $recordsToInsert = [];
+        $kandidatLabelList = [];
+
+        if ($isAsatidz) {
+            // Asatidz: boleh memilih Musyrif dan Musyrifah sekaligus, atau salah satu saja
+            if (empty($kandidatMusyrif) && empty($kandidatMusyrifah)) {
+                $errorMessage = 'Mohon tentukan pilihan Anda: Musyrif, Musyrifah, atau keduanya.';
             }
-        } elseif (in_array($nis, $votedNis)) {
-            $errorMessage = 'Santri ini sudah pernah memberikan suaranya.';
-            if ($isJson) {
-                header('Content-Type: application/json');
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => $errorMessage]);
-                exit;
+
+            if (empty($errorMessage) && !empty($kandidatMusyrif)) {
+                if (!in_array($kandidatMusyrif, array_column($musyrifList, 'nama'))) {
+                    $errorMessage = 'Kandidat Musyrif yang dipilih tidak valid.';
+                } elseif (empty($alasanMusyrif)) {
+                    $errorMessage = 'Mohon isi alasan memilih Musyrif.';
+                } else {
+                    $wordsM = preg_split('/\s+/', $alasanMusyrif, -1, PREG_SPLIT_NO_EMPTY);
+                    if (count($wordsM) > 30) {
+                        $errorMessage = 'Alasan Musyrif maksimal 30 kata (saat ini ' . count($wordsM) . ' kata).';
+                    } else {
+                        $recordsToInsert[] = [
+                            'nis' => $nis,
+                            'nama_pemilih' => $selectedVoter['Nama Sesuai KK'],
+                            'nama_panggilan' => $selectedVoter['Nama Panggilan'] ?? '',
+                            'jenis_kelamin' => $selectedVoter['Jenis Kelamin'] ?? 'Laki-laki',
+                            'kategori' => 'Musyrif',
+                            'kandidat' => $kandidatMusyrif,
+                            'alasan' => $alasanMusyrif,
+                            'waktu_voting' => date('Y-m-d H:i:s'),
+                            'tipe_pemilih' => 'Asatidz'
+                        ];
+                        $kandidatLabelList[] = $kandidatMusyrif;
+                    }
+                }
+            }
+
+            if (empty($errorMessage) && !empty($kandidatMusyrifah)) {
+                if (!in_array($kandidatMusyrifah, array_column($musyrifahList, 'nama'))) {
+                    $errorMessage = 'Kandidat Musyrifah yang dipilih tidak valid.';
+                } elseif (empty($alasanMusyrifah)) {
+                    $errorMessage = 'Mohon isi alasan memilih Musyrifah.';
+                } else {
+                    $wordsMf = preg_split('/\s+/', $alasanMusyrifah, -1, PREG_SPLIT_NO_EMPTY);
+                    if (count($wordsMf) > 30) {
+                        $errorMessage = 'Alasan Musyrifah maksimal 30 kata (saat ini ' . count($wordsMf) . ' kata).';
+                    } else {
+                        $recordsToInsert[] = [
+                            'nis' => $nis,
+                            'nama_pemilih' => $selectedVoter['Nama Sesuai KK'],
+                            'nama_panggilan' => $selectedVoter['Nama Panggilan'] ?? '',
+                            'jenis_kelamin' => $selectedVoter['Jenis Kelamin'] ?? 'Perempuan',
+                            'kategori' => 'Musyrifah',
+                            'kandidat' => $kandidatMusyrifah,
+                            'alasan' => $alasanMusyrifah,
+                            'waktu_voting' => date('Y-m-d H:i:s'),
+                            'tipe_pemilih' => 'Asatidz'
+                        ];
+                        $kandidatLabelList[] = $kandidatMusyrifah;
+                    }
+                }
             }
         } else {
-            // Validasi kecocokan jenis kelamin & kandidat
-            $isLaki = strcasecmp(trim($selectedSantri['Jenis Kelamin']), 'laki-laki') === 0;
-            $allowedCandidates = $isLaki
-                ? array_column($musyrifList, 'nama')
-                : array_column($musyrifahList, 'nama');
+            // Santri biasa: Santri Laki-laki memilih Musyrif, Santri Perempuan memilih Musyrifah
+            $isLaki = strcasecmp(trim($selectedVoter['Jenis Kelamin']), 'laki-laki') === 0;
+            $chosenKandidat = $isLaki ? $kandidatMusyrif : $kandidatMusyrifah;
+            $chosenAlasan = $isLaki ? $alasanMusyrif : $alasanMusyrifah;
+            $allowedCandidates = $isLaki ? array_column($musyrifList, 'nama') : array_column($musyrifahList, 'nama');
 
-            if (!in_array($kandidat, $allowedCandidates)) {
+            if (empty($chosenKandidat) || empty($chosenAlasan)) {
+                $errorMessage = 'Mohon pilih kandidat dan tuliskan alasan Anda.';
+            } elseif (!in_array($chosenKandidat, $allowedCandidates)) {
                 $errorMessage = 'Kandidat yang dipilih tidak valid untuk kategori Anda.';
-                if ($isJson) {
-                    header('Content-Type: application/json');
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'message' => $errorMessage]);
-                    exit;
-                }
             } else {
-                // Simpan ke SleekDB
-                $voteRecord = [
-                    'nis' => $nis,
-                    'nama_pemilih' => $selectedSantri['Nama Sesuai KK'],
-                    'nama_panggilan' => $selectedSantri['Nama Panggilan'] ?? '',
-                    'jenis_kelamin' => $selectedSantri['Jenis Kelamin'],
-                    'kategori' => $isLaki ? 'Musyrif' : 'Musyrifah',
-                    'kandidat' => $kandidat,
-                    'alasan' => $alasan,
-                    'waktu_voting' => date('Y-m-d H:i:s')
-                ];
-
-                $voteStore->insert($voteRecord);
-
-                if ($isJson) {
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Terima kasih sudah memilih!',
-                        'nama' => $selectedSantri['Nama Sesuai KK'],
-                        'kandidat' => $kandidat
-                    ]);
-                    exit;
+                $words = preg_split('/\s+/', $chosenAlasan, -1, PREG_SPLIT_NO_EMPTY);
+                if (count($words) > 30) {
+                    $errorMessage = 'Alasan maksimal 30 kata (saat ini ' . count($words) . ' kata).';
                 } else {
-                    header('Location: /voting/?success=1&nama=' . urlencode($selectedSantri['Nama Sesuai KK']) . '&kandidat=' . urlencode($kandidat));
-                    exit;
+                    $recordsToInsert[] = [
+                        'nis' => $nis,
+                        'nama_pemilih' => $selectedVoter['Nama Sesuai KK'],
+                        'nama_panggilan' => $selectedVoter['Nama Panggilan'] ?? '',
+                        'jenis_kelamin' => $selectedVoter['Jenis Kelamin'],
+                        'kategori' => $isLaki ? 'Musyrif' : 'Musyrifah',
+                        'kandidat' => $chosenKandidat,
+                        'alasan' => $chosenAlasan,
+                        'waktu_voting' => date('Y-m-d H:i:s'),
+                        'tipe_pemilih' => 'Santri'
+                    ];
+                    $kandidatLabelList[] = $chosenKandidat;
                 }
             }
         }
+
+        if (empty($errorMessage) && !empty($recordsToInsert)) {
+            foreach ($recordsToInsert as $rec) {
+                $voteStore->insert($rec);
+            }
+            $finalKandidatText = implode(' & ', $kandidatLabelList);
+
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Terima kasih sudah memilih!',
+                    'nama' => $selectedVoter['Nama Sesuai KK'],
+                    'kandidat' => $finalKandidatText
+                ]);
+                exit;
+            } else {
+                header('Location: /voting/?success=1&nama=' . urlencode($selectedVoter['Nama Sesuai KK']) . '&kandidat=' . urlencode($finalKandidatText));
+                exit;
+            }
+        }
     }
-}
+
+    if (!empty($errorMessage) && $isJson) {
+        header('Content-Type: application/json');
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $errorMessage]);
+        exit;
+    }
 }
 
 // Statistik Singkat
 $totalSantri = count($allSantri);
-$totalMemilih = count($allVotes);
-$totalBelum = count($availableSantri);
+$totalAsatidz = count($allAsatidz);
+$totalVoters = count($allVoters);
+$totalMemilih = count($votedNis);
+$totalBelum = count($availableSantri) + count($availableAsatidz);
 $isSuccessParam = isset($_GET['success']) && $_GET['success'] == '1';
 $successNama = $_GET['nama'] ?? '';
 $successKandidat = $_GET['kandidat'] ?? '';
@@ -269,17 +359,17 @@ $successKandidat = $_GET['kandidat'] ?? '';
       </div>
     <?php endif; ?>
 
-    <?php if (empty($availableSantri)): ?>
-      <!-- Tampilan Jika Semua Santri Sudah Memilih -->
+    <?php if (empty($availableSantri) && empty($availableAsatidz)): ?>
+      <!-- Tampilan Jika Semua Santri & Asatidz Sudah Memilih -->
       <div class="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 sm:p-12 text-center">
         <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner">
           <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
         </div>
-        <h2 class="text-2xl font-bold text-slate-800 mb-2">Alhamdulillah, Semua Santri Telah Memilih!</h2>
+        <h2 class="text-2xl font-bold text-slate-800 mb-2">Alhamdulillah, Semua Pemilih Telah Memberikan Suara!</h2>
         <p class="text-slate-600 max-w-md mx-auto mb-6 text-sm sm:text-base">
-          Seluruh <strong><?= $totalSantri ?></strong> santri telah memberikan suaranya. Proses pemungutan suara telah selesai dengan sukses.
+          Seluruh <strong><?= $totalVoters ?></strong> pemilih (santri dan asatidz/pembina) telah selesai memilih. Pemungutan suara telah rampung dengan sukses.
         </p>
         <div class="inline-flex gap-3">
           <a href="/voting/?view=rekap" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl shadow transition">
@@ -307,20 +397,38 @@ $successKandidat = $_GET['kandidat'] ?? '';
           <div class="relative">
             <select id="voterSelect" name="nis" required
               class="w-full bg-slate-50 border-2 border-slate-200 text-slate-800 text-base rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 block p-3.5 pr-10 transition font-medium appearance-none cursor-pointer">
-              <option value="" data-gender="">-- Silakan Pilih Nama Anda --</option>
-              <?php foreach ($availableSantri as $santri): ?>
-                <?php
-                  $genderClean = strcasecmp(trim($santri['Jenis Kelamin']), 'laki-laki') === 0 ? 'Laki-laki' : 'Perempuan';
-                  $panggilan = !empty($santri['Nama Panggilan']) ? ' (' . $santri['Nama Panggilan'] . ')' : '';
-                  $icon = $genderClean === 'Laki-laki' ? '👦' : '👧';
-                ?>
-                <option
-                  value="<?= htmlspecialchars($santri['NIS']) ?>"
-                  data-gender="<?= $genderClean ?>"
-                  data-name="<?= htmlspecialchars($santri['Nama Sesuai KK']) ?>">
-                  <?= $icon ?> <?= htmlspecialchars($santri['Nama Sesuai KK'] . $panggilan) ?>
-                </option>
-              <?php endforeach; ?>
+              <option value="" data-type="" data-gender="">-- Silakan Pilih Nama Anda --</option>
+
+              <?php if (!empty($availableAsatidz)): ?>
+                <optgroup label="🌟 Asatidz, Pembina & Staf (Bisa Pilih Musyrif & Musyrifah)">
+                  <?php foreach ($availableAsatidz as $asatidz): ?>
+                    <option
+                      value="<?= htmlspecialchars($asatidz['NIS']) ?>"
+                      data-type="asatidz"
+                      data-gender="<?= htmlspecialchars($asatidz['Jenis Kelamin']) ?>"
+                      data-name="<?= htmlspecialchars($asatidz['Nama Sesuai KK']) ?>">
+                      👔 <?= htmlspecialchars($asatidz['Nama Sesuai KK']) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </optgroup>
+              <?php endif; ?>
+
+              <optgroup label="🎓 Santri (Siswa Dauroh Tahfidz)">
+                <?php foreach ($availableSantri as $santri): ?>
+                  <?php
+                    $genderClean = strcasecmp(trim($santri['Jenis Kelamin']), 'laki-laki') === 0 ? 'Laki-laki' : 'Perempuan';
+                    $panggilan = !empty($santri['Nama Panggilan']) ? ' (' . $santri['Nama Panggilan'] . ')' : '';
+                    $icon = $genderClean === 'Laki-laki' ? '👦' : '👧';
+                  ?>
+                  <option
+                    value="<?= htmlspecialchars($santri['NIS']) ?>"
+                    data-type="santri"
+                    data-gender="<?= $genderClean ?>"
+                    data-name="<?= htmlspecialchars($santri['Nama Sesuai KK']) ?>">
+                    <?= $icon ?> <?= htmlspecialchars($santri['Nama Sesuai KK'] . $panggilan) ?>
+                  </option>
+                <?php endforeach; ?>
+              </optgroup>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-500">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,7 +437,7 @@ $successKandidat = $_GET['kandidat'] ?? '';
             </div>
           </div>
 
-          <!-- Info Badge Jenis Kelamin -->
+          <!-- Info Badge Jenis Kelamin / Kategori Pemilih -->
           <div id="voterInfoBadge" class="hidden mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl items-center justify-between text-sm">
             <div class="flex items-center gap-2">
               <span id="genderIcon" class="text-xl">👦</span>
@@ -351,122 +459,182 @@ $successKandidat = $_GET['kandidat'] ?? '';
           </div>
           <h3 class="font-semibold text-slate-700">Daftar Kandidat Belum Terbuka</h3>
           <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-            Silakan pilih nama pemilih pada langkah 1 di atas terlebih dahulu untuk menampilkan Musyrif / Musyrifah yang sesuai.
+            Silakan pilih nama pemilih pada langkah 1 di atas terlebih dahulu untuk membuka formulir pemilihan kandidat.
           </p>
         </div>
 
         <!-- LANGKAH 2: Pilih Kandidat (Dinamis Musyrif / Musyrifah) -->
-        <div id="candidateSection" class="hidden space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">2</span>
-            <h2 id="candidateSectionTitle" class="text-lg font-bold text-slate-900">
-              Pilih Musyrif / Musyrifah
-            </h2>
-          </div>
-          <p class="text-slate-500 text-xs sm:text-sm">
-            Klik pada salah satu kartu kandidat untuk menentukan pilihan Anda.
-          </p>
+        <div id="candidateSection" class="hidden space-y-6">
 
-          <!-- List Kandidat Musyrif (Laki-laki) -->
-          <div id="musyrifContainer" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-2">
-            <?php foreach ($musyrifList as $index => $candidate): ?>
-              <label class="candidate-card relative flex flex-col items-center bg-white border-2 border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-emerald-300 transition group select-none">
-                <input type="radio" name="kandidat" value="<?= htmlspecialchars($candidate['nama']) ?>" class="sr-only candidate-radio" disabled>
-
-                <!-- Check Badge -->
-                <div class="check-badge hidden absolute top-3 right-3 w-7 h-7 bg-emerald-600 text-white rounded-full items-center justify-center shadow-md">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                  </svg>
-                </div>
-
-                <!-- Foto Kandidat -->
-                <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden mb-3 border-2 border-slate-200 bg-slate-100 group-hover:border-emerald-400 transition shadow-sm">
-                  <img
-                    src="<?= $candidate['foto'] ?>"
-                    alt="<?= htmlspecialchars($candidate['nama']) ?>"
-                    class="w-full h-full object-cover transition duration-300"
-                    loading="lazy">
-                </div>
-
-                <!-- Nama & Label -->
-                <h3 class="font-bold text-slate-900 text-center text-base sm:text-lg group-hover:text-emerald-700 transition">
-                  <?= htmlspecialchars($candidate['nama']) ?>
-                </h3>
-                
-
-                <div class="mt-3 w-full py-1.5 text-center text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 group-hover:border-emerald-500 group-hover:bg-emerald-50 group-hover:text-emerald-700 transition select-button">
-                  Pilih Beliau
-                </div>
-              </label>
-            <?php endforeach; ?>
-          </div>
-
-          <!-- List Kandidat Musyrifah (Perempuan) -->
-          <div id="musyrifahContainer" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-2">
-            <?php foreach ($musyrifahList as $index => $candidate): ?>
-              <label class="candidate-card relative flex flex-col items-center bg-white border-2 border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-emerald-300 transition group select-none">
-                <input type="radio" name="kandidat" value="<?= htmlspecialchars($candidate['nama']) ?>" class="sr-only candidate-radio" disabled>
-
-                <!-- Check Badge -->
-                <div class="check-badge hidden absolute top-3 right-3 w-7 h-7 bg-emerald-600 text-white rounded-full items-center justify-center shadow-md">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                  </svg>
-                </div>
-
-                <!-- Foto Kandidat -->
-                <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden mb-3 border-2 border-slate-200 bg-slate-100 group-hover:border-emerald-400 transition shadow-sm">
-                  <img
-                    src="<?= $candidate['foto'] ?>"
-                    alt="<?= htmlspecialchars($candidate['nama']) ?>"
-                    class="w-full h-full object-cover transition duration-300"
-                    loading="lazy">
-                </div>
-
-                <!-- Nama & Label -->
-                <h3 class="font-bold text-slate-900 text-center text-base sm:text-lg group-hover:text-emerald-700 transition">
-                  <?= htmlspecialchars($candidate['nama']) ?>
-                </h3>
-               
-                <div class="mt-3 w-full py-1.5 text-center text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 group-hover:border-teal-500 group-hover:bg-teal-50 group-hover:text-teal-700 transition select-button">
-                  Pilih Beliau
-                </div>
-              </label>
-            <?php endforeach; ?>
-          </div>
-        </div>
-
-        <!-- LANGKAH 3: Alasan Memilih (Textarea) -->
-        <div id="reasonSection" class="hidden">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <span class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">3</span>
-              <label for="alasanTextarea" class="text-lg font-bold text-slate-900">
-                Alasan Memilih
-              </label>
+          <!-- Pemilih Mode Khusus untuk Asatidz & Pembina -->
+          <div id="asatidzModeSelector" class="hidden p-3 bg-slate-50 rounded-2xl border border-slate-200">
+            <div class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <span>🌟</span>
+              <span>Opsi Pemilihan Asatidz / Pembina:</span>
             </div>
-            <div id="wordCountBadge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 transition">
-              <span id="wordCount">0</span> / 30 kata
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button type="button" data-mode="both" id="modeBtnBoth" class="asatidz-mode-btn py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm text-center transition bg-emerald-600 text-white shadow-sm border border-emerald-600">
+                🌟 Pilih Keduanya (Musyrif & Musyrifah)
+              </button>
+              <button type="button" data-mode="musyrif" id="modeBtnMusyrif" class="asatidz-mode-btn py-2.5 px-3 rounded-xl font-semibold text-xs sm:text-sm text-center transition bg-white text-slate-700 hover:text-slate-900 border border-slate-200">
+                👦 Pilih Musyrif Saja
+              </button>
+              <button type="button" data-mode="musyrifah" id="modeBtnMusyrifah" class="asatidz-mode-btn py-2.5 px-3 rounded-xl font-semibold text-xs sm:text-sm text-center transition bg-white text-slate-700 hover:text-slate-900 border border-slate-200">
+                👧 Pilih Musyrifah Saja
+              </button>
             </div>
           </div>
-          <p class="text-slate-500 text-xs sm:text-sm mb-3">
-            Tuliskan alasan mengapa Anda memilih Ustadz / Ustadzah tersebut (maksimal 30 kata).
-          </p>
 
-          <textarea
-            id="alasanTextarea"
-            name="alasan"
-            rows="4"
-            required
-            placeholder="Contoh: Beliau sangat telaten, ramah, dan membimbing hafalan Al-Qur'an dengan sabar..."
-            class="w-full bg-slate-50 border-2 border-slate-200 text-slate-800 text-sm sm:text-base rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 block p-3.5 transition placeholder-slate-400"></textarea>
-          <div id="wordLimitWarning" class="hidden mt-2 text-xs text-rose-600 font-bold flex items-center gap-1.5">
-            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-            <span>Alasan melebihi batas maksimal 30 kata! Mohon persingkat sebelum mengirim.</span>
+          <!-- GRUP 1: MUSYRIF -->
+          <div id="musyrifGroup" class="space-y-4 bg-slate-50/60 p-4 sm:p-5 rounded-2xl border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-200/80 pb-2">
+              <div class="flex items-center gap-2">
+                <span id="musyrifStepBadge" class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">2</span>
+                <h3 id="musyrifGroupTitle" class="text-base sm:text-lg font-bold text-slate-900">
+                  Pilih Musyrif Pilihan Anda
+                </h3>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Kategori Musyrif</span>
+            </div>
+            <p class="text-slate-500 text-xs sm:text-sm">
+              Klik pada salah satu kartu Ustadz Musyrif di bawah ini:
+            </p>
+
+            <div id="musyrifContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-1">
+              <?php foreach ($musyrifList as $index => $candidate): ?>
+                <label class="candidate-card relative flex flex-col items-center bg-white border-2 border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-emerald-300 transition group select-none">
+                  <input type="radio" name="kandidat_musyrif" value="<?= htmlspecialchars($candidate['nama']) ?>" class="sr-only candidate-radio candidate-radio-musyrif" disabled>
+
+                  <!-- Check Badge -->
+                  <div class="check-badge hidden absolute top-3 right-3 w-7 h-7 bg-emerald-600 text-white rounded-full items-center justify-center shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </div>
+
+                  <!-- Foto Kandidat -->
+                  <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden mb-3 border-2 border-slate-200 bg-slate-100 group-hover:border-emerald-400 transition shadow-sm">
+                    <img
+                      src="<?= $candidate['foto'] ?>"
+                      alt="<?= htmlspecialchars($candidate['nama']) ?>"
+                      class="w-full h-full object-cover transition duration-300"
+                      loading="lazy">
+                  </div>
+
+                  <!-- Nama & Label -->
+                  <h4 class="font-bold text-slate-900 text-center text-base sm:text-lg group-hover:text-emerald-700 transition">
+                    <?= htmlspecialchars($candidate['nama']) ?>
+                  </h4>
+
+                  <div class="mt-3 w-full py-1.5 text-center text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 group-hover:border-emerald-500 group-hover:bg-emerald-50 group-hover:text-emerald-700 transition select-button">
+                    Pilih Beliau
+                  </div>
+                </label>
+              <?php endforeach; ?>
+            </div>
+
+            <!-- Alasan Memilih Musyrif -->
+            <div id="musyrifReasonBox" class="mt-4 pt-3 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-2">
+                <label for="alasanMusyrif" class="text-sm font-bold text-slate-800">
+                  Alasan Memilih Musyrif
+                </label>
+                <div id="wordCountBadgeMusyrif" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 transition">
+                  <span id="wordCountMusyrif">0</span> / 30 kata
+                </div>
+              </div>
+              <p class="text-slate-500 text-xs mb-2">
+                Tuliskan alasan mengapa Anda memilih Ustadz tersebut (maksimal 30 kata).
+              </p>
+              <textarea
+                id="alasanMusyrif"
+                name="alasan_musyrif"
+                rows="3"
+                placeholder="Contoh: Beliau sangat telaten, ramah, dan membimbing hafalan Al-Qur'an dengan sabar..."
+                class="w-full bg-white border-2 border-slate-200 text-slate-800 text-sm sm:text-base rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 block p-3.5 transition placeholder-slate-400"></textarea>
+              <div id="wordLimitWarningMusyrif" class="hidden mt-2 text-xs text-rose-600 font-bold flex items-center gap-1.5">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Alasan melebihi batas maksimal 30 kata! Mohon persingkat sebelum mengirim.</span>
+              </div>
+            </div>
+
           </div>
+
+          <!-- GRUP 2: MUSYRIFAH -->
+          <div id="musyrifahGroup" class="space-y-4 bg-slate-50/60 p-4 sm:p-5 rounded-2xl border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-200/80 pb-2">
+              <div class="flex items-center gap-2">
+                <span id="musyrifahStepBadge" class="w-7 h-7 rounded-full bg-teal-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">2</span>
+                <h3 id="musyrifahGroupTitle" class="text-base sm:text-lg font-bold text-slate-900">
+                  Pilih Musyrifah Pilihan Anda
+                </h3>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">Kategori Musyrifah</span>
+            </div>
+            <p class="text-slate-500 text-xs sm:text-sm">
+              Klik pada salah satu kartu Ustadzah Musyrifah di bawah ini:
+            </p>
+
+            <div id="musyrifahContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-1">
+              <?php foreach ($musyrifahList as $index => $candidate): ?>
+                <label class="candidate-card relative flex flex-col items-center bg-white border-2 border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-teal-300 transition group select-none">
+                  <input type="radio" name="kandidat_musyrifah" value="<?= htmlspecialchars($candidate['nama']) ?>" class="sr-only candidate-radio candidate-radio-musyrifah" disabled>
+
+                  <!-- Check Badge -->
+                  <div class="check-badge hidden absolute top-3 right-3 w-7 h-7 bg-teal-600 text-white rounded-full items-center justify-center shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </div>
+
+                  <!-- Foto Kandidat -->
+                  <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden mb-3 border-2 border-slate-200 bg-slate-100 group-hover:border-teal-400 transition shadow-sm">
+                    <img
+                      src="<?= $candidate['foto'] ?>"
+                      alt="<?= htmlspecialchars($candidate['nama']) ?>"
+                      class="w-full h-full object-cover transition duration-300"
+                      loading="lazy">
+                  </div>
+
+                  <!-- Nama & Label -->
+                  <h4 class="font-bold text-slate-900 text-center text-base sm:text-lg group-hover:text-teal-700 transition">
+                    <?= htmlspecialchars($candidate['nama']) ?>
+                  </h4>
+
+                  <div class="mt-3 w-full py-1.5 text-center text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 group-hover:border-teal-500 group-hover:bg-teal-50 group-hover:text-teal-700 transition select-button">
+                    Pilih Beliau
+                  </div>
+                </label>
+              <?php endforeach; ?>
+            </div>
+
+            <!-- Alasan Memilih Musyrifah -->
+            <div id="musyrifahReasonBox" class="mt-4 pt-3 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-2">
+                <label for="alasanMusyrifah" class="text-sm font-bold text-slate-800">
+                  Alasan Memilih Musyrifah
+                </label>
+                <div id="wordCountBadgeMusyrifah" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 transition">
+                  <span id="wordCountMusyrifah">0</span> / 30 kata
+                </div>
+              </div>
+              <p class="text-slate-500 text-xs mb-2">
+                Tuliskan alasan mengapa Anda memilih Ustadzah tersebut (maksimal 30 kata).
+              </p>
+              <textarea
+                id="alasanMusyrifah"
+                name="alasan_musyrifah"
+                rows="3"
+                placeholder="Contoh: Beliau sangat telaten, ramah, dan membimbing hafalan Al-Qur'an dengan sabar..."
+                class="w-full bg-white border-2 border-slate-200 text-slate-800 text-sm sm:text-base rounded-xl focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 block p-3.5 transition placeholder-slate-400"></textarea>
+              <div id="wordLimitWarningMusyrifah" class="hidden mt-2 text-xs text-rose-600 font-bold flex items-center gap-1.5">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Alasan melebihi batas maksimal 30 kata! Mohon persingkat sebelum mengirim.</span>
+              </div>
+            </div>
+
+          </div>
+
         </div>
 
         <!-- Tombol Kirim -->
@@ -646,10 +814,26 @@ $successKandidat = $_GET['kandidat'] ?? '';
       const genderIcon = document.getElementById('genderIcon');
       const placeholderStep = document.getElementById('placeholderStep');
       const candidateSection = document.getElementById('candidateSection');
-      const candidateSectionTitle = document.getElementById('candidateSectionTitle');
+      const asatidzModeSelector = document.getElementById('asatidzModeSelector');
+
+      const musyrifGroup = document.getElementById('musyrifGroup');
+      const musyrifGroupTitle = document.getElementById('musyrifGroupTitle');
+      const musyrifStepBadge = document.getElementById('musyrifStepBadge');
       const musyrifContainer = document.getElementById('musyrifContainer');
+      const alasanMusyrif = document.getElementById('alasanMusyrif');
+      const wordCountMusyrif = document.getElementById('wordCountMusyrif');
+      const wordCountBadgeMusyrif = document.getElementById('wordCountBadgeMusyrif');
+      const wordLimitWarningMusyrif = document.getElementById('wordLimitWarningMusyrif');
+
+      const musyrifahGroup = document.getElementById('musyrifahGroup');
+      const musyrifahGroupTitle = document.getElementById('musyrifahGroupTitle');
+      const musyrifahStepBadge = document.getElementById('musyrifahStepBadge');
       const musyrifahContainer = document.getElementById('musyrifahContainer');
-      const reasonSection = document.getElementById('reasonSection');
+      const alasanMusyrifah = document.getElementById('alasanMusyrifah');
+      const wordCountMusyrifah = document.getElementById('wordCountMusyrifah');
+      const wordCountBadgeMusyrifah = document.getElementById('wordCountBadgeMusyrifah');
+      const wordLimitWarningMusyrifah = document.getElementById('wordLimitWarningMusyrifah');
+
       const submitSection = document.getElementById('submitSection');
       const votingForm = document.getElementById('votingForm');
       const submitBtn = document.getElementById('submitBtn');
@@ -661,12 +845,9 @@ $successKandidat = $_GET['kandidat'] ?? '';
       const progressBar = document.getElementById('progressBar');
       const btnNextVoter = document.getElementById('btnNextVoter');
 
-      const alasanTextarea = document.getElementById('alasanTextarea');
-      const wordCount = document.getElementById('wordCount');
-      const wordCountBadge = document.getElementById('wordCountBadge');
-      const wordLimitWarning = document.getElementById('wordLimitWarning');
-
+      let currentVoterType = '';
       let currentGender = '';
+      let activeAsatidzMode = 'both'; // 'both', 'musyrif', 'musyrifah'
 
       function countWords(str) {
         if (!str) return 0;
@@ -674,31 +855,33 @@ $successKandidat = $_GET['kandidat'] ?? '';
         return matches ? matches.length : 0;
       }
 
-      function updateWordCount() {
-        if (!alasanTextarea) return;
-        const count = countWords(alasanTextarea.value);
-        if (wordCount) wordCount.textContent = count;
+      function setupWordCounter(textarea, countEl, badgeEl, warningEl) {
+        if (!textarea) return;
+        function update() {
+          const count = countWords(textarea.value);
+          if (countEl) countEl.textContent = count;
 
-        if (count > 30) {
-          if (wordCountBadge) {
-            wordCountBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 border border-rose-300 transition';
+          if (count > 30) {
+            if (badgeEl) {
+              badgeEl.className = 'text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 border border-rose-300 transition';
+            }
+            if (warningEl) warningEl.classList.remove('hidden');
+            textarea.classList.add('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
+            textarea.classList.remove('border-slate-200', 'focus:border-emerald-500', 'focus:ring-emerald-500/20', 'focus:border-teal-500', 'focus:ring-teal-500/20');
+          } else {
+            if (badgeEl) {
+              badgeEl.className = 'text-xs font-semibold px-2.5 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 transition';
+            }
+            if (warningEl) warningEl.classList.add('hidden');
+            textarea.classList.remove('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
+            textarea.classList.add('border-slate-200');
           }
-          if (wordLimitWarning) wordLimitWarning.classList.remove('hidden');
-          alasanTextarea.classList.add('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
-          alasanTextarea.classList.remove('border-slate-200', 'focus:border-emerald-500', 'focus:ring-emerald-500/20');
-        } else {
-          if (wordCountBadge) {
-            wordCountBadge.className = 'text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 transition';
-          }
-          if (wordLimitWarning) wordLimitWarning.classList.add('hidden');
-          alasanTextarea.classList.remove('border-rose-400', 'focus:border-rose-500', 'focus:ring-rose-500/20');
-          alasanTextarea.classList.add('border-slate-200', 'focus:border-emerald-500', 'focus:ring-emerald-500/20');
         }
+        textarea.addEventListener('input', update);
       }
 
-      if (alasanTextarea) {
-        alasanTextarea.addEventListener('input', updateWordCount);
-      }
+      setupWordCounter(alasanMusyrif, wordCountMusyrif, wordCountBadgeMusyrif, wordLimitWarningMusyrif);
+      setupWordCounter(alasanMusyrifah, wordCountMusyrifah, wordCountBadgeMusyrifah, wordLimitWarningMusyrifah);
 
       // Fungsi Redirect Countdown
       function startRedirectCountdown() {
@@ -725,16 +908,81 @@ $successKandidat = $_GET['kandidat'] ?? '';
         }
       }
 
-      // Jika dibuka dengan parameter ?success=1
       <?php if ($isSuccessParam): ?>
         startRedirectCountdown();
       <?php endif; ?>
 
       if (!voterSelect) return;
 
+      // Handle Perubahan Mode Asatidz
+      function setAsatidzMode(mode) {
+        activeAsatidzMode = mode;
+
+        document.querySelectorAll('.asatidz-mode-btn').forEach(btn => {
+          const btnMode = btn.getAttribute('data-mode');
+          if (btnMode === mode) {
+            btn.className = 'asatidz-mode-btn py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm text-center transition bg-emerald-600 text-white shadow-sm border border-emerald-600';
+          } else {
+            btn.className = 'asatidz-mode-btn py-2.5 px-3 rounded-xl font-semibold text-xs sm:text-sm text-center transition bg-white text-slate-700 hover:text-slate-900 border border-slate-200';
+          }
+        });
+
+        if (mode === 'both') {
+          musyrifGroup.classList.remove('hidden');
+          musyrifStepBadge.textContent = '2A';
+          musyrifGroupTitle.textContent = 'Langkah 2A: Pilih Musyrif Pilihan Anda';
+          musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+
+          musyrifahGroup.classList.remove('hidden');
+          musyrifahStepBadge.textContent = '2B';
+          musyrifahGroupTitle.textContent = 'Langkah 2B: Pilih Musyrifah Pilihan Anda';
+          musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+        } else if (mode === 'musyrif') {
+          musyrifGroup.classList.remove('hidden');
+          musyrifStepBadge.textContent = '2';
+          musyrifGroupTitle.textContent = 'Langkah 2: Pilih Musyrif Pilihan Anda';
+          musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+
+          musyrifahGroup.classList.add('hidden');
+          musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => {
+            r.checked = false;
+            r.disabled = true;
+          });
+          musyrifahContainer.querySelectorAll('.candidate-card').forEach(c => {
+            c.classList.remove('selected');
+            const btn = c.querySelector('.select-button');
+            if (btn) btn.textContent = 'Pilih Beliau';
+          });
+        } else if (mode === 'musyrifah') {
+          musyrifGroup.classList.add('hidden');
+          musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => {
+            r.checked = false;
+            r.disabled = true;
+          });
+          musyrifContainer.querySelectorAll('.candidate-card').forEach(c => {
+            c.classList.remove('selected');
+            const btn = c.querySelector('.select-button');
+            if (btn) btn.textContent = 'Pilih Beliau';
+          });
+
+          musyrifahGroup.classList.remove('hidden');
+          musyrifahStepBadge.textContent = '2';
+          musyrifahGroupTitle.textContent = 'Langkah 2: Pilih Musyrifah Pilihan Anda';
+          musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+        }
+      }
+
+      document.querySelectorAll('.asatidz-mode-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const mode = btn.getAttribute('data-mode');
+          setAsatidzMode(mode);
+        });
+      });
+
       // Event saat nama pemilih dipilih
       voterSelect.addEventListener('change', function() {
         const selectedOption = voterSelect.options[voterSelect.selectedIndex];
+        const voterType = (selectedOption.getAttribute('data-type') || '').trim();
         const gender = (selectedOption.getAttribute('data-gender') || '').trim();
         const voterName = selectedOption.getAttribute('data-name') || '';
 
@@ -749,57 +997,75 @@ $successKandidat = $_GET['kandidat'] ?? '';
           radio.disabled = true;
         });
 
-        if (!gender) {
+        if (alasanMusyrif) alasanMusyrif.value = '';
+        if (alasanMusyrifah) alasanMusyrifah.value = '';
+        if (wordCountMusyrif) wordCountMusyrif.textContent = '0';
+        if (wordCountMusyrifah) wordCountMusyrifah.textContent = '0';
+
+        if (!voterSelect.value) {
           // Tidak ada pemilih yang dipilih
           placeholderStep.classList.remove('hidden');
           candidateSection.classList.add('hidden');
-          reasonSection.classList.add('hidden');
           submitSection.classList.add('hidden');
           voterInfoBadge.classList.add('hidden');
+          currentVoterType = '';
           currentGender = '';
           return;
         }
 
+        currentVoterType = voterType;
         currentGender = gender;
         placeholderStep.classList.add('hidden');
         candidateSection.classList.remove('hidden');
-        reasonSection.classList.remove('hidden');
         submitSection.classList.remove('hidden');
         voterInfoBadge.classList.remove('hidden');
         voterInfoBadge.classList.add('flex');
 
-        if (gender.toLowerCase() === 'laki-laki') {
-          // Santri Laki-laki -> Memilih Musyrif
-          candidateSectionTitle.textContent = 'Langkah 2: Pilih Musyrif Pilihan Anda';
-          voterCategoryText.textContent = 'Santri Ikhwan (Laki-laki) → Memilih Musyrif';
-          genderIcon.textContent = '👦';
-
-          musyrifContainer.classList.remove('hidden');
-          musyrifahContainer.classList.add('hidden');
-
-          // Aktifkan radio buttons musyrif
-          musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+        if (voterType === 'asatidz') {
+          // Asatidz / Pembina -> Bebas memilih Musyrif & Musyrifah
+          asatidzModeSelector.classList.remove('hidden');
+          genderIcon.textContent = '🌟';
+          voterCategoryText.textContent = 'Asatidz & Pembina → Bebas Memilih Musyrif & Musyrifah';
+          setAsatidzMode('both');
         } else {
-          // Santri Perempuan -> Memilih Musyrifah
-          candidateSectionTitle.textContent = 'Langkah 2: Pilih Musyrifah Pilihan Anda';
-          voterCategoryText.textContent = 'Santriwati Akhwat (Perempuan) → Memilih Musyrifah';
-          genderIcon.textContent = '👧';
+          // Santri biasa
+          asatidzModeSelector.classList.add('hidden');
 
-          musyrifContainer.classList.add('hidden');
-          musyrifahContainer.classList.remove('hidden');
+          if (gender.toLowerCase() === 'laki-laki') {
+            // Santri Laki-laki -> Memilih Musyrif
+            voterCategoryText.textContent = 'Santri Ikhwan (Laki-laki) → Memilih Musyrif';
+            genderIcon.textContent = '👦';
 
-          // Aktifkan radio buttons musyrifah
-          musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+            musyrifGroup.classList.remove('hidden');
+            musyrifStepBadge.textContent = '2';
+            musyrifGroupTitle.textContent = 'Langkah 2: Pilih Musyrif Pilihan Anda';
+            musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+
+            musyrifahGroup.classList.add('hidden');
+            musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = true);
+          } else {
+            // Santri Perempuan -> Memilih Musyrifah
+            voterCategoryText.textContent = 'Santriwati Akhwat (Perempuan) → Memilih Musyrifah';
+            genderIcon.textContent = '👧';
+
+            musyrifGroup.classList.add('hidden');
+            musyrifContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = true);
+
+            musyrifahGroup.classList.remove('hidden');
+            musyrifahStepBadge.textContent = '2';
+            musyrifahGroupTitle.textContent = 'Langkah 2: Pilih Musyrifah Pilihan Anda';
+            musyrifahContainer.querySelectorAll('.candidate-radio').forEach(r => r.disabled = false);
+          }
         }
       });
 
-      // Event saat kartu kandidat diklik
+      // Event saat kartu kandidat diklik (menangani container Musyrif & Musyrifah secara terpisah)
       document.querySelectorAll('.candidate-card').forEach(card => {
         card.addEventListener('click', function(e) {
           const radio = card.querySelector('.candidate-radio');
           if (!radio || radio.disabled) return;
 
-          // Hapus kelas selected dari kontainer yang sama
+          // Hapus kelas selected HANYA dari kontainer kandidat yang sama
           const parentContainer = card.closest('#musyrifContainer, #musyrifahContainer');
           if (parentContainer) {
             parentContainer.querySelectorAll('.candidate-card').forEach(c => {
@@ -822,8 +1088,9 @@ $successKandidat = $_GET['kandidat'] ?? '';
         e.preventDefault();
 
         const nis = voterSelect.value;
-        const selectedRadio = document.querySelector('.candidate-radio:checked:not(:disabled)');
-        const alasan = document.getElementById('alasanTextarea').value.trim();
+        const selectedOption = voterSelect.options[voterSelect.selectedIndex];
+        const voterType = selectedOption.getAttribute('data-type') || 'santri';
+        const namaPemilih = selectedOption.getAttribute('data-name') || 'Pemilih';
 
         if (!nis) {
           alert('Mohon pilih nama pemilih terlebih dahulu.');
@@ -831,27 +1098,134 @@ $successKandidat = $_GET['kandidat'] ?? '';
           return;
         }
 
-        if (!selectedRadio) {
-          alert('Mohon pilih salah satu kandidat terlebih dahulu.');
-          return;
-        }
+        const checkedMusyrif = document.querySelector('.candidate-radio-musyrif:checked:not(:disabled)');
+        const checkedMusyrifah = document.querySelector('.candidate-radio-musyrifah:checked:not(:disabled)');
+        const textAlasanMusyrif = alasanMusyrif ? alasanMusyrif.value.trim() : '';
+        const textAlasanMusyrifah = alasanMusyrifah ? alasanMusyrifah.value.trim() : '';
 
-        if (!alasan) {
-          alert('Mohon isi alasan Anda memilih kandidat tersebut.');
-          alasanTextarea.focus();
-          return;
-        }
+        const payload = {
+          nis: nis,
+          mode: activeAsatidzMode,
+          kandidat_musyrif: '',
+          alasan_musyrif: '',
+          kandidat_musyrifah: '',
+          alasan_musyrifah: ''
+        };
 
-        const wordsNum = countWords(alasan);
-        if (wordsNum > 30) {
-          alert('Alasan maksimal 30 kata. Saat ini terdapat ' + wordsNum + ' kata. Mohon persingkat alasan Anda sebelum mengirim.');
-          alasanTextarea.focus();
-          return;
-        }
+        if (voterType === 'asatidz') {
+          if (activeAsatidzMode === 'both') {
+            if (!checkedMusyrif) {
+              alert('Mohon pilih salah satu kandidat Musyrif terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrif) {
+              alert('Mohon tuliskan alasan memilih Musyrif.');
+              alasanMusyrif.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrif) > 30) {
+              alert('Alasan memilih Musyrif maksimal 30 kata.');
+              alasanMusyrif.focus();
+              return;
+            }
 
-        const kandidat = selectedRadio.value;
-        const selectedOption = voterSelect.options[voterSelect.selectedIndex];
-        const namaPemilih = selectedOption.getAttribute('data-name') || 'Santri';
+            if (!checkedMusyrifah) {
+              alert('Mohon pilih salah satu kandidat Musyrifah terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrifah) {
+              alert('Mohon tuliskan alasan memilih Musyrifah.');
+              alasanMusyrifah.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrifah) > 30) {
+              alert('Alasan memilih Musyrifah maksimal 30 kata.');
+              alasanMusyrifah.focus();
+              return;
+            }
+
+            payload.kandidat_musyrif = checkedMusyrif.value;
+            payload.alasan_musyrif = textAlasanMusyrif;
+            payload.kandidat_musyrifah = checkedMusyrifah.value;
+            payload.alasan_musyrifah = textAlasanMusyrifah;
+
+          } else if (activeAsatidzMode === 'musyrif') {
+            if (!checkedMusyrif) {
+              alert('Mohon pilih salah satu kandidat Musyrif terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrif) {
+              alert('Mohon tuliskan alasan memilih Musyrif.');
+              alasanMusyrif.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrif) > 30) {
+              alert('Alasan memilih Musyrif maksimal 30 kata.');
+              alasanMusyrif.focus();
+              return;
+            }
+
+            payload.kandidat_musyrif = checkedMusyrif.value;
+            payload.alasan_musyrif = textAlasanMusyrif;
+
+          } else if (activeAsatidzMode === 'musyrifah') {
+            if (!checkedMusyrifah) {
+              alert('Mohon pilih salah satu kandidat Musyrifah terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrifah) {
+              alert('Mohon tuliskan alasan memilih Musyrifah.');
+              alasanMusyrifah.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrifah) > 30) {
+              alert('Alasan memilih Musyrifah maksimal 30 kata.');
+              alasanMusyrifah.focus();
+              return;
+            }
+
+            payload.kandidat_musyrifah = checkedMusyrifah.value;
+            payload.alasan_musyrifah = textAlasanMusyrifah;
+          }
+
+        } else {
+          // Santri biasa
+          if (currentGender.toLowerCase() === 'laki-laki') {
+            if (!checkedMusyrif) {
+              alert('Mohon pilih salah satu kandidat Musyrif terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrif) {
+              alert('Mohon tuliskan alasan Anda memilih kandidat.');
+              alasanMusyrif.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrif) > 30) {
+              alert('Alasan maksimal 30 kata.');
+              alasanMusyrif.focus();
+              return;
+            }
+            payload.kandidat_musyrif = checkedMusyrif.value;
+            payload.alasan_musyrif = textAlasanMusyrif;
+          } else {
+            if (!checkedMusyrifah) {
+              alert('Mohon pilih salah satu kandidat Musyrifah terlebih dahulu.');
+              return;
+            }
+            if (!textAlasanMusyrifah) {
+              alert('Mohon tuliskan alasan Anda memilih kandidat.');
+              alasanMusyrifah.focus();
+              return;
+            }
+            if (countWords(textAlasanMusyrifah) > 30) {
+              alert('Alasan maksimal 30 kata.');
+              alasanMusyrifah.focus();
+              return;
+            }
+            payload.kandidat_musyrifah = checkedMusyrifah.value;
+            payload.alasan_musyrifah = textAlasanMusyrifah;
+          }
+        }
 
         // Tampilkan state loading pada tombol
         submitBtn.disabled = true;
@@ -871,19 +1245,15 @@ $successKandidat = $_GET['kandidat'] ?? '';
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
-            body: JSON.stringify({
-              nis: nis,
-              kandidat: kandidat,
-              alasan: alasan
-            })
+            body: JSON.stringify(payload)
           });
 
           const result = await response.json();
 
           if (response.ok && result.success) {
             // Tampilkan modal ucapan terima kasih
-            if (modalVoterName) modalVoterName.textContent = namaPemilih;
-            if (modalCandidateName) modalCandidateName.textContent = kandidat;
+            if (modalVoterName) modalVoterName.textContent = result.nama || namaPemilih;
+            if (modalCandidateName) modalCandidateName.textContent = result.kandidat || '';
 
             thankYouModal.classList.remove('hidden');
             thankYouModal.classList.add('flex');
@@ -897,7 +1267,7 @@ $successKandidat = $_GET['kandidat'] ?? '';
           }
         } catch (err) {
           console.error(err);
-          // Fallback ke submit formulir biasa jika fetch mengalami kendala
+          // Fallback submit biasa jika fetch error
           votingForm.submit();
         }
       });
