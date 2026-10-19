@@ -705,9 +705,17 @@ $successKandidat = $_GET['kandidat'] ?? '';
 
     <!-- Tombol & Bagian Rekap Hasil (Opsional di bagian bawah) -->
     <footer class="mt-12 text-center border-t border-slate-200 pt-6 text-xs text-slate-500">
-      <div class="flex items-center justify-center gap-4 mb-2">
-        <a href="#" class="text-emerald-700 hover:text-emerald-800 font-semibold underline underline-offset-2">
+      <div class="flex items-center justify-center gap-4 mb-2 flex-wrap">
+        <a href="/semua" class="text-emerald-700 hover:text-emerald-800 font-bold underline underline-offset-2">
+          Lihat Semua Kesan Santri
+        </a>
+        <span>&bull;</span>
+        <a href="/voting/?view=rekap" class="text-slate-600 hover:text-slate-800 font-medium underline underline-offset-2">
           Lihat Rekap Hasil Pemilihan
+        </a>
+        <span>&bull;</span>
+        <a href="/" class="text-slate-600 hover:text-slate-800 font-medium underline underline-offset-2">
+          Pengumuman Hasil
         </a>
         <span>&bull;</span>
         <a href="#" onclick="return confirm('Apakah Anda yakin ingin mereset seluruh data voting?')" class="text-slate-400 hover:text-rose-600 transition">

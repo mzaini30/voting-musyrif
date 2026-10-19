@@ -269,7 +269,26 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
   <div id="backgroundQuotesLayer" class="fixed inset-0 z-0 pointer-events-none overflow-hidden hidden"></div>
 
   <!-- Navbar / Header Atas -->
- 
+  <header class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative z-20">
+    <div class="inline-flex items-center gap-2 text-xs font-bold tracking-wider text-emerald-400 uppercase">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      E-Voting Musyrif
+    </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="/semua" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 px-3.5 py-1.5 rounded-xl transition backdrop-blur-sm shadow-sm">
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+        </svg>
+        <span>Semua Kesan Santri</span>
+      </a>
+      <a href="/voting/" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 px-3.5 py-1.5 rounded-xl transition backdrop-blur-sm shadow-sm">
+        <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <span>Form Voting</span>
+      </a>
+    </div>
+  </header>
 
   <!-- Konten Utama -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col items-center justify-center relative z-10">
@@ -299,6 +318,15 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
         </svg>
       </button>
+
+      <div class="mt-5">
+        <a href="/semua" class="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-400 hover:text-emerald-300 underline underline-offset-4 transition">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+          Lihat Semua Catatan & Kesan Santri (/semua)
+        </a>
+      </div>
     </div>
 
     <!-- 2. ARENA PENGUMUMAN (KIRI: MUSYRIF, TENGAH: COUNTDOWN, KANAN: MUSYRIFAH) -->
@@ -369,6 +397,12 @@ $allSantriQuotes = array_values(array_unique($allSantriQuotes));
               </span><br>
               TERPILIH!
             </h2>
+            <a href="/semua" class="mt-4 inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold text-slate-950 bg-gradient-to-r from-amber-300 to-yellow-400 hover:from-amber-200 hover:to-yellow-300 px-5 py-2.5 rounded-xl shadow-lg hover:shadow-amber-400/40 transform hover:-translate-y-0.5 transition duration-150">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+              </svg>
+              <span>Baca Semua Kesan Santri</span>
+            </a>
           </div>
 
         </div>
